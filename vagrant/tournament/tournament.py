@@ -8,7 +8,21 @@ import contextlib
 
 @contextlib.contextmanager
 def get_cursor():
-    
+    """
+    manage database connection.
+    """
+    conn = connect()
+    cur = conn.cursor()
+    try:
+        yield cur
+    except:
+        raise
+    else:
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+
 
 def connect():
     """Connect to the PostgreSQL database.  Returns a database connection."""
@@ -17,32 +31,21 @@ def connect():
 
 def deleteMatches():
     """Remove all the match records from the database."""
-    DB = connect()
-    cur = DB.cursor()
-    cur.execute("DELETE FROM Matches;")
-    DB.commit()
-
-    DB.close()
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM Matches;")
 
 
 def deletePlayers():
     """Remove all the player records from the database."""
-    DB = connect()
-
-    cur = DB.cursor()
-    cur.execute("DELETE FROM Players;")
-    DB.commit()
-
-    DB.close()
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM Players;")
 
 
 def countPlayers():
     """Returns the number of players currently registered."""
-    DB = connect()
-    cur = DB.cursor()
-    cur.execute("SELECT count(*) FROM Players")
-    count = cur.fetchall()[0][0]
-    DB.close()
+    with get_cursor() as cur:
+        cur.execute("SELECT count(*) FROM Players")
+        count = cur.fetchall()[0][0]
 
     return count
 
@@ -56,13 +59,8 @@ def registerPlayer(name):
     Args:
       name: the player's full name (need not be unique).
     """
-    DB = connect()
-    cur = DB.cursor()
-    cur.execute("INSERT INTO Players (name) VALUES (%s) RETURNING id", (name,))
-    DB.commit()
-
-
-    DB.close()
+    with get_cursor() as cur:
+        cur.execute("INSERT INTO Players (name) VALUES (%s) RETURNING id", (name,))
 
 
 def playerStandings():
@@ -78,13 +76,9 @@ def playerStandings():
         wins: the number of matches the player has won
         matches: the number of matches the player has played
     """
-    DB = connect()
-
-    cur = DB.cursor()
-    cur.execute("SELECT id, name, wins, matches FROM Standings")
-    player_standings = cur.fetchall()
-
-    DB.close()
+    with get_cursor() as cur:
+        cur.execute("SELECT id, name, wins, matches FROM Standings")
+        player_standings = cur.fetchall()
 
     return player_standings
 
@@ -96,13 +90,8 @@ def reportMatch(winner, loser):
       winner:  the id number of the player who won
       loser:  the id number of the player who lost
     """
-    DB = connect()
-
-    cur = DB.cursor()
-    cur.execute("INSERT INTO Matches (winner,loser) VALUES (%s, %s)", (winner, loser))
-    DB.commit()
-
-    DB.close()
+    with get_cursor() as cur:
+        cur.execute("INSERT INTO Matches (winner,loser) VALUES (%s, %s)", (winner, loser))
 
 
 def swissPairings():
@@ -121,10 +110,12 @@ def swissPairings():
         name2: the second player's name
     """
     pairings = []
+    # retrive player standings
     standings = playerStandings()
     for i in range(len(standings)/2):
         p1 = standings[i*2]
         p2 = standings[i*2+1]
+        # pair up first with second in line
         pairings.append((p1[0], p1[1], p2[0], p2[1]))
 
     return pairings
